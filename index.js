@@ -27,6 +27,7 @@ app.post("/webhook", async (req, res) => {
   if (body.object === "page") {
     body.entry.forEach(async function(entry) {
       let webhook_event = entry.messaging[0];
+      console.log("📨 Incoming webhook payload:", JSON.stringify(webhook_event, null, 2));
       let sender_psid = webhook_event.sender.id;
 
       if (webhook_event.message && webhook_event.message.text) {
