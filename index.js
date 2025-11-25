@@ -4,9 +4,9 @@ const bodyParser = require("body-parser");
 const app = express();
 app.use(bodyParser.json());
 
-const PAGE_ACCESS_TOKEN = "EAAKTFQ7iZBlMBQJ9b0z8e12eCq6QDkGZC2w2c9KjNoaCIgMhZA9VrngcaNEgEeIS91yk3WwFcZC7mXWzf54PWWlnwdbO1ZAxHgmRcM9ZAXlrR8A2ilYIK6AC3LXVAeeOQdf6AMa7Tmok4ceI9i0ZAT7nzX1iuf9hjivZCsoeIEMg2T6VysNMb31Ycp5UxzMxuONMxdUPV2zDdgVW0Uk7UDWAQeJZBBwZDZD"; // Facebook Page Token
-const VERIFY_TOKEN = "my_verify_token_59287624";           // Custom string for webhook verification
-const WIT_TOKEN = "XMD57BD7SK3JRUYITGL66OZJFXBMIGFC";      // Wit.ai Server Access Token
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WIT_TOKEN = process.env.WIT_TOKEN;
 
 // Verification webhook (Facebook calls this)
 app.get("/webhook", (req, res) => {
