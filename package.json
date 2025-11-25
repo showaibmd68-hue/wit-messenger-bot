@@ -4,11 +4,20 @@
   "description": "Facebook Messenger bot with Wit.ai integration",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
-  "keywords": ["messenger", "bot", "wit.ai", "facebook", "chatbot"],
-  "author": "Anonna Flair",
-  "license": "ISC",
+  "keywords": [
+    "messenger",
+    "bot",
+    "wit.ai",
+    "facebook",
+    "chatbot",
+    "vercel",
+    "webhook"
+  ],
+  "author": "Showaib Siddiky",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "axios": "^1.6.4",
