@@ -23,14 +23,4 @@
     "axios": "^1.6.4",
     "body-parser": "^1.20.2"
   }
-  {
-  "version": 2,
-  "builds": [
-    { "src": "index.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "/webhook", "dest": "index.js" }
-  ]
-}
-
 }
