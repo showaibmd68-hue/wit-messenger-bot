@@ -1,7 +1,7 @@
 {
   "name": "messenger-witai-bot",
   "version": "1.0.0",
-  "description": "Facebook Messenger bot with Wit.ai integration",
+  "description": "Facebook Messenger bot with Wit.ai integration and intelligent handover logic",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -14,13 +14,23 @@
     "facebook",
     "chatbot",
     "vercel",
-    "webhook"
+    "webhook",
+    "handover",
+    "intelligent",
+    "multilingual"
   ],
   "author": "Showaib Siddiky",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.6.4",
-    "body-parser": "^1.20.2"
+    "express": "^4.18.2",          // পুরাতন: server framework
+    "axios": "^1.6.4",             // পুরাতন: API call
+    "body-parser": "^1.20.2",      // পুরাতন: request parsing
+    "dotenv": "^16.3.1",           // নতুন: .env থেকে token load
+    "winston": "^3.10.0",          // নতুন: logging (payload, error, admin handover)
+    "morgan": "^1.10.0",           // নতুন: HTTP request logger
+    "lowdb": "^6.0.1"              // নতুন: lightweight JSON DB (userStates persist করার জন্য)
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"            // নতুন: development auto restart
   }
 }
