@@ -1,9 +1,20 @@
-  {
+{
   "version": 2,
   "builds": [
     { "src": "index.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/webhook", "dest": "index.js" }
-  ]
+    { "src": "/webhook", "dest": "/index.js" }
+  ],
+  "env": {
+    "PAGE_ACCESS_TOKEN": "@page_access_token",
+    "VERIFY_TOKEN": "@verify_token",
+    "WIT_TOKEN": "@wit_token"
+  },
+  "functions": {
+    "index.js": {
+      "memory": 512,
+      "maxDuration": 10
+    }
+  }
 }
