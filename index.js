@@ -6,7 +6,7 @@ const morgan = require("morgan");
 
 const app = express();
 app.use(bodyParser.json());
-app.use(morgan("dev")); // HTTP রিকোয়েস্ট লগিং
+app.use(morgan("dev"));
 
 // ১. প্রফেশনাল লগিং সিস্টেম
 const logger = winston.createLogger({
@@ -19,21 +19,16 @@ const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WIT_TOKEN = process.env.WIT_TOKEN;
 
-// মেমোরি ডাটাবেস
 let userStates = {};
 
-// ২. অত্যন্ত বড় এবং ডাইনামিক রিপ্লাই লিস্ট (মানুষের মতো ন্যাচারাল ভাষা)
+// ২. ডাইনামিক রিপ্লাই লিস্ট (আপডেট করা হয়েছে)
 const dynamicReplies = {
   greeting: [
-    "Hello there! Assalamu Alaikum from ANONNA FLAIR. How can we make your day special today?",
-    "Hi! Welcome to the home of authentic Pakistani luxury. How can I assist you with our collection?",
-    "Greetings from ANONNA FLAIR! Looking for something elegant? Tell me how I can help."
+    "Assalamu Alaikum! Welcome to ANONNA FLAIR. You can visit our website: https://anonnaflair.com",
+    "Hi! Welcome to ANONNA FLAIR. Explore our collection here: https://anonnaflair.com",
+    "Hello! Welcome to ANONNA FLAIR. Check out our latest designs at: https://anonnaflair.com"
   ],
-  price: [
-    "Our luxury collection has various price points. Could you kindly share a screenshot? Our experts will tell you the exact price instantly.",
-    "To provide you with the most accurate pricing and current availability, please send us the product photo.",
-    "Prices for our premium suits depend on the brand and fabric. Drop a screenshot here, and I'll get the details for you!"
-  ],
+  // Price ইনটেন্ট এখানে রাখা হয়নি যাতে ভুল করেও অটো-রিপ্লাই না যায়
   delivery_process: [
     "Delivery Update: For luxury items under 10K, we require a 510 BDT advance. For premium sets above 10K, it's 2040 BDT. Secure your order now! Call: +8801781755955",
     "Our delivery is seamless! Since these are high-value imported suits, we take a small commitment advance (510/2040 BDT). Rest is Cash on Delivery. Questions? Call +8801781755955",
@@ -50,14 +45,12 @@ const dynamicReplies = {
   ]
 };
 
-// ৩. র্যান্ডম রিপ্লাই ফাংশন (ChatGPT Feel দেওয়ার জন্য)
 function getSmartReply(intent) {
   const list = dynamicReplies[intent];
   if (!list) return null;
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// ৪. মেসেজ পাঠানোর ফাংশন
 async function sendReply(psid, text) {
   if (!text) return;
   try {
@@ -69,17 +62,16 @@ async function sendReply(psid, text) {
   } catch (e) { logger.error(`Error sending message: ${e.message}`); }
 }
 
-// ভেরিফিকেশন রুট
 app.get("/webhook", (req, res) => {
   if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === VERIFY_TOKEN) {
     res.status(200).send(req.query["hub.challenge"]);
   } else { res.sendStatus(403); }
 });
 
-// ৫. মেইন ওয়েবহুক প্রসেসিং
 app.post("/webhook", async (req, res) => {
   if (req.body.object === "page") {
     req.body.entry.forEach(async (entry) => {
+      if (!entry.messaging) return;
       let webhook_event = entry.messaging[0];
       let sender_psid = webhook_event.sender.id;
 
@@ -87,9 +79,8 @@ app.post("/webhook", async (req, res) => {
         let message_text = webhook_event.message.text;
         logger.info(`New Message from ${sender_psid}: ${message_text}`);
 
-        // অ্যাডভান্সড টাইমার (১ ঘণ্টা পর সরি মেসেজ)
         if (!userStates[sender_psid]) {
-          userStates[sender_psid] = { startTime: Date.now(), lastMsg: message_text };
+          userStates[sender_psid] = { startTime: Date.now(), repliedByAdmin: false };
           setTimeout(async () => {
             if (userStates[sender_psid] && !userStates[sender_psid].repliedByAdmin) {
               await sendReply(sender_psid, "We apologize for the wait! Our luxury consultants at ANONNA FLAIR are currently busy. We'll be with you shortly. For urgent queries: +8801781755955");
@@ -98,7 +89,6 @@ app.post("/webhook", async (req, res) => {
         }
 
         try {
-          // Wit.ai এনালিসিস
           let wit_res = await axios.get(
             `https://api.wit.ai/message?v=20251125&q=${encodeURIComponent(message_text)}`,
             { headers: { Authorization: `Bearer ${WIT_TOKEN}` } }
@@ -106,12 +96,18 @@ app.post("/webhook", async (req, res) => {
 
           let firstIntent = wit_res.data.intents[0];
 
-          // লজিক: হাই কনফিডেন্স হলে রিপ্লাই দিবে
           if (firstIntent && firstIntent.confidence > 0.80) {
             let intentName = firstIntent.name;
+
+            // ৩. প্রাইস সাইলেন্স লজিক (দাম জানতে চাইলে বট চুপ থাকবে)
+            if (intentName === "price") {
+              logger.info(`Price inquiry ('${message_text}') detected. Bot is staying silent for Admin.`);
+              return; 
+            }
+
             let reply = getSmartReply(intentName);
 
-            // যদি কোডে রিপ্লাই না থাকে, Wit.ai থেকে Traits চেক করবে
+            // গ্রিটিং ট্রেইট ব্যাকআপ
             if (!reply && wit_res.data.traits && wit_res.data.traits['wit$greetings']) {
                 reply = getSmartReply('greeting');
             }
@@ -120,7 +116,7 @@ app.post("/webhook", async (req, res) => {
               await sendReply(sender_psid, reply);
             }
           } else {
-            logger.info("Confidence low. Bot is staying silent for Admin handover.");
+            logger.info("Confidence low. Bot is staying silent for Admin.");
           }
         } catch (err) { logger.error("Wit processing failed"); }
       }
@@ -129,4 +125,4 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 3000, () => logger.info("ANONNA FLAIR Large-Scale Bot Running..."));
+app.listen(process.env.PORT || 3000);
