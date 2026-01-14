@@ -4,7 +4,7 @@
     { "src": "index.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/webhook", "dest": "/index.js" }
+    { "src": "/(.*)", "dest": "index.js" }
   ],
   "env": {
     "PAGE_ACCESS_TOKEN": "@page_access_token",
@@ -14,7 +14,7 @@
   "functions": {
     "index.js": {
       "memory": 512,
-      "maxDuration": 10
+      "maxDuration": 15
     }
   }
 }
