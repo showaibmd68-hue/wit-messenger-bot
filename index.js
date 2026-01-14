@@ -6,96 +6,127 @@ const morgan = require("morgan");
 
 const app = express();
 app.use(bodyParser.json());
-app.use(morgan("combined")); // Morgan লগিং চালু করা হলো
+app.use(morgan("dev")); // HTTP রিকোয়েস্ট লগিং
 
-// Winston Logger সেটিংস
+// ১. প্রফেশনাল লগিং সিস্টেম
 const logger = winston.createLogger({
   level: "info",
-  format: winston.format.json(),
-  transports: [new winston.transports.Console()],
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+  transports: [new winston.transports.Console()]
 });
 
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WIT_TOKEN = process.env.WIT_TOKEN;
 
-// ইউজার স্টেট ডাটাবেস (মেমোরি ভিত্তিক, Vercel-এর জন্য উপযুক্ত)
-let userStates = {}; 
+// মেমোরি ডাটাবেস
+let userStates = {};
 
+// ২. অত্যন্ত বড় এবং ডাইনামিক রিপ্লাই লিস্ট (মানুষের মতো ন্যাচারাল ভাষা)
+const dynamicReplies = {
+  greeting: [
+    "Hello there! Assalamu Alaikum from ANONNA FLAIR. How can we make your day special today?",
+    "Hi! Welcome to the home of authentic Pakistani luxury. How can I assist you with our collection?",
+    "Greetings from ANONNA FLAIR! Looking for something elegant? Tell me how I can help."
+  ],
+  price: [
+    "Our luxury collection has various price points. Could you kindly share a screenshot? Our experts will tell you the exact price instantly.",
+    "To provide you with the most accurate pricing and current availability, please send us the product photo.",
+    "Prices for our premium suits depend on the brand and fabric. Drop a screenshot here, and I'll get the details for you!"
+  ],
+  delivery_process: [
+    "Delivery Update: For luxury items under 10K, we require a 510 BDT advance. For premium sets above 10K, it's 2040 BDT. Secure your order now! Call: +8801781755955",
+    "Our delivery is seamless! Since these are high-value imported suits, we take a small commitment advance (510/2040 BDT). Rest is Cash on Delivery. Questions? Call +8801781755955",
+    "Standard procedure: 510 BDT advance for orders below 10K, and 2040 BDT for 10K+. We ensure the safest delivery for your luxury choice. Helpline: +8801781755955"
+  ],
+  authenticity: [
+    "Rest assured, ANONNA FLAIR only deals in 100% original Pakistani brands. No copies, no replicas—only authenticity.",
+    "Every piece in our collection is sourced directly from original brands. We guarantee 100% authenticity or your money back!",
+    "Quality is our priority. We sell only authentic, imported Pakistani designer wear. Shop with confidence!"
+  ],
+  location: [
+    "We are based in Gazipur, Bangladesh. For our exact address or a visit, feel free to call us at +8801781755955.",
+    "ANONNA FLAIR is located in Gazipur. You can find our premium collection right here! Need directions? Call +8801781755955"
+  ]
+};
+
+// ৩. র্যান্ডম রিপ্লাই ফাংশন (ChatGPT Feel দেওয়ার জন্য)
+function getSmartReply(intent) {
+  const list = dynamicReplies[intent];
+  if (!list) return null;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+// ৪. মেসেজ পাঠানোর ফাংশন
 async function sendReply(psid, text) {
+  if (!text) return;
   try {
     await axios.post(`https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
       recipient: { id: psid },
       message: { text }
     });
-    logger.info(`Reply sent to ${psid}`);
-  } catch (e) { 
-    logger.error("Error sending message: " + e.message); 
-  }
+    logger.info(`Response sent to ${psid}`);
+  } catch (e) { logger.error(`Error sending message: ${e.message}`); }
 }
 
-// ফেসবুক ভেরিফিকেশন
+// ভেরিফিকেশন রুট
 app.get("/webhook", (req, res) => {
   if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === VERIFY_TOKEN) {
     res.status(200).send(req.query["hub.challenge"]);
-  } else {
-    res.sendStatus(403);
-  }
+  } else { res.sendStatus(403); }
 });
 
+// ৫. মেইন ওয়েবহুক প্রসেসিং
 app.post("/webhook", async (req, res) => {
-  let body = req.body;
-  if (body.object === "page") {
-    body.entry.forEach(async (entry) => {
-      if (!entry.messaging) return;
+  if (req.body.object === "page") {
+    req.body.entry.forEach(async (entry) => {
       let webhook_event = entry.messaging[0];
       let sender_psid = webhook_event.sender.id;
 
       if (webhook_event.message && webhook_event.message.text) {
         let message_text = webhook_event.message.text;
-        
-        // ইউজার স্টেট চেক
+        logger.info(`New Message from ${sender_psid}: ${message_text}`);
+
+        // অ্যাডভান্সড টাইমার (১ ঘণ্টা পর সরি মেসেজ)
         if (!userStates[sender_psid]) {
-          userStates[sender_psid] = { startTime: Date.now(), repliedByAdmin: false, lateReplySent: false };
-          
-          // ১ ঘণ্টা পর চেক (নতুন কাস্টমারদের জন্য)
+          userStates[sender_psid] = { startTime: Date.now(), lastMsg: message_text };
           setTimeout(async () => {
-            if (!userStates[sender_psid].repliedByAdmin && !userStates[sender_psid].lateReplySent) {
-              await sendReply(sender_psid, "Sorry for late reply. Our team at ANONNA FLAIR is busy. Please send your choice screenshot or question, our team replying as soon as possible. Call: +8801781755955");
-              userStates[sender_psid].lateReplySent = true;
+            if (userStates[sender_psid] && !userStates[sender_psid].repliedByAdmin) {
+              await sendReply(sender_psid, "We apologize for the wait! Our luxury consultants at ANONNA FLAIR are currently busy. We'll be with you shortly. For urgent queries: +8801781755955");
             }
-          }, 3600000); 
+          }, 3600000);
         }
 
         try {
-          // Wit.ai থেকে ডাটা নেওয়া
+          // Wit.ai এনালিসিস
           let wit_res = await axios.get(
             `https://api.wit.ai/message?v=20251125&q=${encodeURIComponent(message_text)}`,
             { headers: { Authorization: `Bearer ${WIT_TOKEN}` } }
           );
 
           let firstIntent = wit_res.data.intents[0];
-          
-          // ৮৫% কনফিডেন্স স্কোর লজিক
-          if (firstIntent && firstIntent.confidence > 0.85) {
-            let intentName = firstIntent.name;
-            let reply = "";
 
-            if (intentName === "greeting") reply = "আসসালামু আলাইকুম! ANONNA FLAIR-এ আপনাকে স্বাগতম। আমি কীভাবে সাহায্য করতে পারি?";
-            else if (intentName === "price") reply = "আমাদের এই কালেকশনটির দাম জানতে দয়া করে স্ক্রিনশট দিন বা কল করুন: +8801781755955";
-            
-            if (reply) await sendReply(sender_psid, reply);
+          // লজিক: হাই কনফিডেন্স হলে রিপ্লাই দিবে
+          if (firstIntent && firstIntent.confidence > 0.80) {
+            let intentName = firstIntent.name;
+            let reply = getSmartReply(intentName);
+
+            // যদি কোডে রিপ্লাই না থাকে, Wit.ai থেকে Traits চেক করবে
+            if (!reply && wit_res.data.traits && wit_res.data.traits['wit$greetings']) {
+                reply = getSmartReply('greeting');
+            }
+
+            if (reply) {
+              await sendReply(sender_psid, reply);
+            }
           } else {
-            // উত্তর না মিললে চুপ থাকবে (অ্যাডমিন হ্যান্ডওভার)
-            logger.info("Wit.ai confidence low. Staying silent for Admin.");
+            logger.info("Confidence low. Bot is staying silent for Admin handover.");
           }
-        } catch (err) { 
-          logger.error("Wit processing error: " + err.message); 
-        }
+        } catch (err) { logger.error("Wit processing failed"); }
       }
     });
     res.status(200).send("EVENT_RECEIVED");
   }
 });
 
-app.listen(process.env.PORT || 3000, () => logger.info("Advanced Bot is running..."));
+app.listen(process.env.PORT || 3000, () => logger.info("ANONNA FLAIR Large-Scale Bot Running..."));
